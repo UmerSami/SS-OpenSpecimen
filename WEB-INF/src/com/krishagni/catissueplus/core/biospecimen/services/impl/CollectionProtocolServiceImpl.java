@@ -88,6 +88,7 @@ import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.Tuple;
 import com.krishagni.catissueplus.core.common.access.AccessCtrlMgr;
 import com.krishagni.catissueplus.core.common.access.AccessCtrlMgr.ParticipantReadAccess;
+import com.krishagni.catissueplus.core.common.access.SiteCpPair;
 import com.krishagni.catissueplus.core.common.domain.Notification;
 import com.krishagni.catissueplus.core.common.errors.ErrorType;
 import com.krishagni.catissueplus.core.common.errors.OpenSpecimenException;
@@ -1950,8 +1951,11 @@ public class CollectionProtocolServiceImpl implements CollectionProtocolService,
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
+		//
+		// TODO: Specimen list API
+		//
 		Set<Long> siteIds = siteCps.stream().map(siteCp -> siteCp.first()).collect(Collectors.toSet());
-		cfg.setRestriction(getListRestriction(siteIds));
+//		cfg.setRestriction(getListRestriction(siteIds));
 		cfg.setDistinct(true);
 		return cfg;
 	}
@@ -1978,30 +1982,66 @@ public class CollectionProtocolServiceImpl implements CollectionProtocolService,
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
-		Set<Long> siteIds = new HashSet<>();
-		for (Pair<Set<Long>, Long> siteCp : access.siteCps) {
-			siteIds.addAll(siteCp.first());
-		}
-
-		cfg.setRestriction(getListRestriction(siteIds));
+		cfg.setRestriction(getListRestriction(access.siteCps));
 		cfg.setDistinct(true);
 		return cfg;
 	}
 
-	private String getListRestriction(Collection<Long> siteIds) {
-		StringBuilder restriction = new StringBuilder();
+	private String getListRestriction(Collection<SiteCpPair> siteCps) {
+		StringBuilder instituteIds = new StringBuilder();
+		StringBuilder siteIds = new StringBuilder();
+		for (SiteCpPair siteCp : siteCps) {
+			if (siteCp.getSiteId() != null) {
+				if (siteIds.length() != 0) {
+					siteIds.append(",");
+				}
 
-		String siteIdsStr = siteIds.stream().map(siteId -> siteId.toString()).collect(Collectors.joining(", "));
+				siteIds.append(siteCp.getSiteId());
+			} else {
+				if (instituteIds.length() != 0) {
+					instituteIds.append(",");
+				}
+
+				instituteIds.append(siteCp.getInstituteId());
+			}
+		}
+
+		StringBuilder restriction = new StringBuilder();
 		if (AccessCtrlMgr.getInstance().isAccessRestrictedBasedOnMrn()) {
-			restriction.append("(").append("(Participant.medicalRecord.mrnSiteId exists")
-				.append(" and Participant.medicalRecord.mrnSiteId in (").append(siteIdsStr)
-				.append(")) or (Participant.medicalRecord.mrnSiteId not exists ")
-				.append(" and CollectionProtocol.cpSites.siteId in (").append(siteIdsStr).append(")))");
+			restriction.append("((Participant.medicalRecord.mrnSiteId exists and")
+				.append(getSiteIdRestriction("Participant.medicalRecord.mrnSiteId", instituteIds.toString(), siteIds.toString()))
+				.append(") or (Participant.medicalRecord.mrnSiteId not exists and ")
+				.append(getSiteIdRestriction("CollectionProtocol.cpSites.siteId", instituteIds.toString(), siteIds.toString()))
+				.append("))");
 		} else {
-			restriction.append("(CollectionProtocol.cpSites.siteId in (").append(siteIdsStr).append("))");
+			restriction.append(getSiteIdRestriction("CollectionProtocol.cpSites.siteId", instituteIds.toString(), siteIds.toString()));
 		}
 
 		return restriction.insert(0, "(").append(")").toString();
+	}
+
+	private String getSiteIdRestriction(String property, String instituteIds, String siteIds) {
+		StringBuilder restriction = new StringBuilder();
+
+		if (StringUtils.isNotBlank(instituteIds)) {
+			restriction.append("(").append(property).append(" in ")
+				.append(sqlRestriction(String.format(INSTITUTE_SITES_SQL, instituteIds)))
+				.append(")");
+
+			if (StringUtils.isNotBlank(siteIds)) {
+				restriction.append(" or ");
+			}
+		}
+
+		if (StringUtils.isNotBlank(siteIds)) {
+			restriction.append(property).append(" in (").append(siteIds).append(")");
+		}
+
+		return restriction.insert(0, "(").append(")").toString();
+	}
+
+	private String sqlRestriction(String restriction) {
+		return "sql(\"" + restriction + "\")";
 	}
 
 	private ListConfig getListConfig(Map<String, Object> listReq, String listName, String drivingForm) {
@@ -2106,4 +2146,7 @@ public class CollectionProtocolServiceImpl implements CollectionProtocolService,
 	private static final int OP_CP_CREATED = 0;
 
 	private static final int OP_CP_DELETED = 2;
+
+	private static final String INSTITUTE_SITES_SQL =
+			"select identifier from catissue_site where institute_id in (%s) and activity_status != 'Disabled'";
 }

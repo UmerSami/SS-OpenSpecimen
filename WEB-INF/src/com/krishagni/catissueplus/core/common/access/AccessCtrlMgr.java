@@ -357,13 +357,9 @@ public class AccessCtrlMgr {
 	public static class ParticipantReadAccess {
 		public boolean admin;
 
-		//
-		// phiSiteCps and siteCps is used for all accessible CPs
-		// [{[site ids], cp id}]
-		//
-		public Set<Pair<Set<Long>, Long>> phiSiteCps;
+		public Set<SiteCpPair> phiSiteCps = new HashSet<>();
 
-		public Set<Pair<Set<Long>, Long>> siteCps;
+		public Set<SiteCpPair> siteCps = new HashSet<>();
 
 		public boolean phiAccess;
 
@@ -389,28 +385,19 @@ public class AccessCtrlMgr {
 		resource = Resource.PARTICIPANT_DEID.getName();
 		accessList.addAll(daoFactory.getSubjectDao().getAccessList(userId, resource, ops));
 
-		Set<Pair<Set<Long>, Long>> phiSiteCps = new HashSet<>();
-		Set<Pair<Set<Long>, Long>> siteCps = new HashSet<>();
+		Long instituteId = AuthUtil.getCurrentUserInstitute().getId();
 		for (SubjectAccess access : accessList) {
-			Set<Site> sites;
-			if (access.getSite() != null) {
-				sites = Collections.singleton(access.getSite());
-			} else {
-				sites = getUserInstituteSites(userId);
-			}
-
-			Set<Long> siteIds = sites.stream().map(Site::getId).collect(Collectors.toSet());
 			Long cpId = access.getCollectionProtocol() != null ? access.getCollectionProtocol().getId() : null;
-			if (Resource.PARTICIPANT.getName().equals(access.getResource())) {
-				phiSiteCps.add(Pair.make(siteIds, cpId));
-			}
+			Long siteId = access.getSite() != null ? access.getSite().getId() : null;
 
-			siteCps.add(Pair.make(siteIds, cpId));
+			SiteCpPair siteCp = SiteCpPair.make(instituteId, siteId, cpId);
+			result.siteCps.add(siteCp);
+			if (Resource.PARTICIPANT.getName().equals(access.getResource())) {
+				result.phiSiteCps.add(siteCp);
+			}
 		}
 
-		result.phiSiteCps = phiSiteCps;
-		result.siteCps = siteCps;
-		result.phiAccess = CollectionUtils.isNotEmpty(phiSiteCps);
+		result.phiAccess = !result.phiSiteCps.isEmpty();
 		return result;
 	}
 
@@ -437,19 +424,12 @@ public class AccessCtrlMgr {
 			result.phiAccess = false;
 		}
 
-		Set<Pair<Set<Long>, Long>> siteCps = new HashSet<>();
+		Long instituteId = AuthUtil.getCurrentUserInstitute().getId();
 		for (SubjectAccess access : accessList) {
-			Site accessSite = access.getSite();
-
-			if (accessSite != null) {
-				siteCps.add(Pair.make(Collections.singleton(accessSite.getId()), cpId));
-			} else {
-				Set<Site> sites = getUserInstituteSites(userId);
-				siteCps.add(Pair.make(sites.stream().map(Site::getId).collect(Collectors.toSet()), cpId));
-			}
+			Long siteId = access.getSite() != null ? access.getSite().getId() : null;
+			result.siteCps.add(SiteCpPair.make(instituteId, siteId, cpId));
 		}
 
-		result.siteCps = siteCps;
 		if (result.phiAccess) {
 			result.phiSiteCps = result.siteCps;
 		}

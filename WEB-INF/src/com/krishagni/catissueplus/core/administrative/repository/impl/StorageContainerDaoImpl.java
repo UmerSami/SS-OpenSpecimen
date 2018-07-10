@@ -434,7 +434,11 @@ public class StorageContainerDaoImpl extends AbstractDao<StorageContainer> imple
 			.createAlias("pos.container", "container")
 			.createAlias("container.ancestorContainers", "aContainer")
 			.add(Restrictions.in("aContainer.id", containerIds));
-		BiospecimenDaoHelper.getInstance().addSiteCpsCond(query, siteCps, useMrnSites, "visit");
+
+		//
+		// TODO: fix containers API
+		//
+		BiospecimenDaoHelper.getInstance().addSiteCpsCond(query, null, useMrnSites, "visit");
 		return getInvalidSpecimens(containerIds, validSpmnsQuery, firstN);
 	}
 
@@ -640,7 +644,10 @@ public class StorageContainerDaoImpl extends AbstractDao<StorageContainer> imple
 			}
 		}
 
-		BiospecimenDaoHelper.getInstance().addSiteCpsCond(query, crit.siteCps(), crit.useMrnSites(), startAlias);
+		//
+		// TODO: Fix containers API
+		//
+		BiospecimenDaoHelper.getInstance().addSiteCpsCond(query, null, crit.useMrnSites(), startAlias);
 		return detachedCriteria;
 	}
 
