@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Criteria;
+import org.hibernate.criterion.Disjunction;
 import org.hibernate.criterion.Junction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
@@ -155,11 +156,27 @@ public class CollectionProtocolDaoImpl extends AbstractDao<CollectionProtocol> i
 	
 	@SuppressWarnings("unchecked")
 	@Override
-	public List<Long> getCpIdsBySiteIds(Collection<Long> siteIds) {
-		return sessionFactory.getCurrentSession()
-				.getNamedQuery(GET_CP_IDS_BY_SITE_IDS)
-				.setParameterList("siteIds", siteIds)
-				.list();
+	public List<Long> getCpIdsBySiteIds(Collection<Long> instituteIds, Collection<Long> siteIds, Collection<String> sites) {
+		Criteria query = getCurrentSession().createCriteria(CollectionProtocol.class, "cp")
+			.createAlias("cp.sites", "cpSite")
+			.createAlias("cpSite.site", "site")
+			.setProjection(Projections.distinct(Projections.property("cp.id")));
+
+		if (CollectionUtils.isNotEmpty(sites)) {
+			query.add(Restrictions.in("site.name", sites));
+		}
+
+		Disjunction siteCond = Restrictions.disjunction();
+		if (CollectionUtils.isNotEmpty(instituteIds)) {
+			query.createAlias("site.institute", "institute");
+			siteCond.add(Restrictions.in("institute.id", instituteIds));
+		}
+
+		if (CollectionUtils.isNotEmpty(siteIds)) {
+			siteCond.add(Restrictions.in("site.id", siteIds));
+		}
+
+		return (List<Long>) query.add(siteCond).list();
 	}
 
 	@Override
@@ -457,8 +474,6 @@ public class CollectionProtocolDaoImpl extends AbstractDao<CollectionProtocol> i
 	private static final String GET_EXPIRING_CPS = FQN + ".getExpiringCps";
 	
 	private static final String GET_CP_BY_CODE = FQN + ".getByCode";
-	
-	private static final String GET_CP_IDS_BY_SITE_IDS = FQN + ".getCpIdsBySiteIds";
 	
 	private static final String GET_SITE_IDS_BY_CP_IDS = FQN + ".getRepoIdsByCps";
 	

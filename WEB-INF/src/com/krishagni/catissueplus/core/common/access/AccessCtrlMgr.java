@@ -3,12 +3,14 @@ package com.krishagni.catissueplus.core.common.access;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
 
@@ -20,6 +22,7 @@ import com.krishagni.catissueplus.core.administrative.domain.Site;
 import com.krishagni.catissueplus.core.administrative.domain.StorageContainer;
 import com.krishagni.catissueplus.core.administrative.domain.User;
 import com.krishagni.catissueplus.core.administrative.domain.factory.SiteErrorCode;
+import com.krishagni.catissueplus.core.administrative.repository.SiteListCriteria;
 import com.krishagni.catissueplus.core.administrative.repository.UserListCriteria;
 import com.krishagni.catissueplus.core.biospecimen.ConfigParams;
 import com.krishagni.catissueplus.core.biospecimen.domain.CollectionProtocol;
@@ -30,7 +33,6 @@ import com.krishagni.catissueplus.core.biospecimen.domain.Specimen;
 import com.krishagni.catissueplus.core.biospecimen.domain.Visit;
 import com.krishagni.catissueplus.core.biospecimen.domain.factory.CpErrorCode;
 import com.krishagni.catissueplus.core.biospecimen.domain.factory.CprErrorCode;
-import com.krishagni.catissueplus.core.biospecimen.domain.factory.ParticipantErrorCode;
 import com.krishagni.catissueplus.core.biospecimen.domain.factory.SpecimenErrorCode;
 import com.krishagni.catissueplus.core.biospecimen.domain.factory.VisitErrorCode;
 import com.krishagni.catissueplus.core.common.Pair;
@@ -1004,31 +1006,92 @@ public class AccessCtrlMgr {
 		return siteCpPairs;
 	}
 
-	public Set<Site> getRoleAssignedSites() {
+	public List<Site> getAccessibleSites(SiteListCriteria crit) {
 		User user = AuthUtil.getCurrentUser();
-		Subject subject = daoFactory.getSubjectDao().getById(user.getId());
+		if (user.isAdmin()) {
+			return daoFactory.getSiteDao().getSites(crit);
+		} else if (user.isInstituteAdmin()) {
+			return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
+		}
 
-		Set<Site> results = new HashSet<Site>();
-		boolean allSites = false;
-		for (SubjectRole role : subject.getRoles()) {
-			if (role.getSite() == null) {
-				allSites = true;
-				break;
+		Set<Site> results = new HashSet<>();
+		if (StringUtils.isNotBlank(crit.resource()) && StringUtils.isNotBlank(crit.operation())) {
+			Resource resource = Resource.fromName(crit.resource());
+			if (resource == null) {
+				throw OpenSpecimenException.userError(RbacErrorCode.RESOURCE_NOT_FOUND);
 			}
 
-			results.add(role.getSite());
+			Operation operation = Operation.fromName(crit.operation());
+			if (operation == null) {
+				throw OpenSpecimenException.userError(RbacErrorCode.OPERATION_NOT_FOUND);
+			}
+
+			List<SubjectAccess> accessList = daoFactory.getSubjectDao()
+				.getAccessList(user.getId(), crit.resource(), new String[] { crit.operation() });
+
+			boolean allSites = false;
+			for (SubjectAccess access : accessList) {
+				if (access.getSite() == null) {
+					allSites = true;
+					break;
+				}
+
+				results.add(access.getSite());
+			}
+
+			if (allSites) {
+				results.clear();
+				return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
+			}
+		} else {
+			Subject subject = daoFactory.getSubjectDao().getById(user.getId());
+			boolean allSites = false;
+			for (SubjectRole role : subject.getRoles()) {
+				if (role.getSite() == null) {
+					allSites = true;
+					break;
+				}
+
+				results.add(role.getSite());
+			}
+
+			if (allSites) {
+				results.clear();
+				return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
+			}
 		}
 
-		if (allSites) {
-			results.clear();
-			results.addAll(getUserInstituteSites(user.getId()));
-		}
-
-		return results;
+		boolean noIds = CollectionUtils.isEmpty(crit.ids());
+		boolean noIncTypes = CollectionUtils.isEmpty(crit.includeTypes());
+		boolean noExlTypes = CollectionUtils.isEmpty(crit.excludeTypes());
+		boolean noSearchTerm = StringUtils.isBlank(crit.query());
+		return results.stream()
+			.filter(site -> noIds || crit.ids().contains(site.getId()))
+			.filter(site -> noIncTypes || crit.includeTypes().contains(site.getType()))
+			.filter(site -> noExlTypes || !crit.excludeTypes().contains(site.getType()))
+			.filter(site -> noSearchTerm || StringUtils.containsIgnoreCase(site.getName(), crit.query()))
+			.sorted(Comparator.comparing(Site::getName))
+			.collect(Collectors.toList());
 	}
-	
+
+	public boolean isAccessible(Site site) {
+		Subject subject = daoFactory.getSubjectDao().getById(AuthUtil.getCurrentUser().getId());
+
+		for (SubjectRole role : subject.getRoles()) {
+			if (site.equals(role.getSite())) {
+				return true;
+			}
+
+			if (role.getSite() == null) {
+				return site.getInstitute().equals(AuthUtil.getCurrentUserInstitute());
+			}
+		}
+
+		return false;
+	}
+
 	public Set<Site> getSites(Resource resource, Operation op) {
-		return getSites(resource, new Operation[]{op});
+		return getSites(resource, new Operation[] { op });
 	}
 
 	public Set<Site> getSites(Resource resource, Operation[] operations) {
@@ -1088,8 +1151,9 @@ public class AccessCtrlMgr {
 			accessList = daoFactory.getSubjectDao().getAccessList(userId, resource, ops, siteNames.toArray(new String[0]));
 		}
 
-		Set<Long> cpIds = new HashSet<Long>();
-		Set<Long> cpOfSites = new HashSet<Long>();
+		Set<Long> cpIds = new HashSet<>();
+		Set<Long> cpOfInstitutes = new HashSet<>();
+		Set<Long> cpOfSites = new HashSet<>();
 		for (SubjectAccess access : accessList) {
 			if (access.getSite() != null && access.getCollectionProtocol() != null) {
 				cpIds.add(access.getCollectionProtocol().getId());
@@ -1098,17 +1162,12 @@ public class AccessCtrlMgr {
 			} else if (access.getCollectionProtocol() != null) {
 				cpIds.add(access.getCollectionProtocol().getId());
 			} else  {
-				Collection<Site> sites = getUserInstituteSites(userId);
-				for (Site site : sites) {
-					if (CollectionUtils.isEmpty(siteNames) || siteNames.contains(site.getName())) {
-						cpOfSites.add(site.getId());
-					}
-				}
+				cpOfInstitutes.add(AuthUtil.getCurrentUserInstitute().getId());
 			}
 		}
 
-		if (!cpOfSites.isEmpty()) {
-			cpIds.addAll(daoFactory.getCollectionProtocolDao().getCpIdsBySiteIds(cpOfSites));
+		if (!cpOfInstitutes.isEmpty() || !cpOfSites.isEmpty()) {
+			cpIds.addAll(daoFactory.getCollectionProtocolDao().getCpIdsBySiteIds(cpOfInstitutes, cpOfSites, siteNames));
 		}
 
 		return cpIds;

@@ -38,7 +38,7 @@ public interface CollectionProtocolDao extends Dao<CollectionProtocol> {
 	
 	public CollectionProtocol getCpByCode(String code);
 
-	public List<Long> getCpIdsBySiteIds(Collection<Long> siteIds);
+	public List<Long> getCpIdsBySiteIds(Collection<Long> instituteIds, Collection<Long> siteIds, Collection<String> siteNames);
 
 	public Map<String, Object> getCpIds(String key, Object value);
 	
