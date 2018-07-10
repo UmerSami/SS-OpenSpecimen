@@ -37,9 +37,9 @@ import com.krishagni.catissueplus.core.biospecimen.domain.Specimen;
 import com.krishagni.catissueplus.core.biospecimen.domain.factory.SpecimenErrorCode;
 import com.krishagni.catissueplus.core.biospecimen.repository.DaoFactory;
 import com.krishagni.catissueplus.core.biospecimen.repository.SpecimenListCriteria;
-import com.krishagni.catissueplus.core.common.Pair;
 import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.access.AccessCtrlMgr;
+import com.krishagni.catissueplus.core.common.access.SiteCpPair;
 import com.krishagni.catissueplus.core.common.errors.ErrorType;
 import com.krishagni.catissueplus.core.common.errors.OpenSpecimenException;
 import com.krishagni.catissueplus.core.common.events.RequestEvent;
@@ -295,7 +295,7 @@ public class ShipmentServiceImpl implements ShipmentService, ObjectAccessor {
 			throw OpenSpecimenException.userError(ShipmentErrorCode.CONT_NAMES_REQ);
 		}
 
-		Set<Pair<Long, Long>> siteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps();
+		Set<SiteCpPair> siteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps();
 		if (siteCps != null && siteCps.isEmpty()) {
 			throw  OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
@@ -365,7 +365,7 @@ public class ShipmentServiceImpl implements ShipmentService, ObjectAccessor {
 	}
 
 	private List<Specimen> getValidSpecimens(List<Long> specimenIds, OpenSpecimenException ose) {
-		List<Pair<Long, Long>> siteCpPairs = AccessCtrlMgr.getInstance().getReadAccessSpecimenSiteCps();
+		List<SiteCpPair> siteCpPairs = AccessCtrlMgr.getInstance().getReadAccessSpecimenSiteCps();
 		if (siteCpPairs != null && siteCpPairs.isEmpty()) {
 			ose.addError(ShipmentErrorCode.INVALID_SPECIMENS);
 			return null;
@@ -456,7 +456,7 @@ public class ShipmentServiceImpl implements ShipmentService, ObjectAccessor {
 	}
 
 	private boolean ensureSpecimensAreAccessible(List<StorageContainer> containers, OpenSpecimenException ose) {
-		List<Pair<Long, Long>> siteCpPairs = AccessCtrlMgr.getInstance().getReadAccessSpecimenSiteCps();
+		List<SiteCpPair> siteCpPairs = AccessCtrlMgr.getInstance().getReadAccessSpecimenSiteCps();
 		if (siteCpPairs != null && siteCpPairs.isEmpty()) {
 			ose.addError(SpecimenErrorCode.ACCESS_DENIED, null, 0);
 			return false;

@@ -20,7 +20,6 @@ import org.hibernate.sql.JoinType;
 
 import com.krishagni.catissueplus.core.administrative.domain.Site;
 import com.krishagni.catissueplus.core.biospecimen.repository.SpecimenListCriteria;
-import com.krishagni.catissueplus.core.common.Pair;
 import com.krishagni.catissueplus.core.common.access.SiteCpPair;
 
 public class BiospecimenDaoHelper {
@@ -102,16 +101,13 @@ public class BiospecimenDaoHelper {
 		query.add(cpSitesCond);
 	}
 
-	public String getSiteCpsCondAql(List<Pair<Long, Long>> siteCps, boolean useMrnSites) {
+	public String getSiteCpsCondAql(List<SiteCpPair> siteCps, boolean useMrnSites) {
 		if (CollectionUtils.isEmpty(siteCps)) {
 			return StringUtils.EMPTY;
 		}
 
 		Set<String> cpSitesCond = new LinkedHashSet<>(); // joined by or
-		for (Pair<Long, Long> siteCp : siteCps) {
-			Long siteId = siteCp.first();
-			Long cpId = siteCp.second();
-
+		for (SiteCpPair siteCp : siteCps) {
 			List<String> siteCond = new ArrayList<>(); // joined by or
 			if (useMrnSites) {
 				//
@@ -119,28 +115,27 @@ public class BiospecimenDaoHelper {
 				//
 				String mrnSite =
 					"Participant.medicalRecord.mrnSiteId exists and " +
-					"Participant.medicalRecord.mrnSiteId = " + siteId;
+					getAqlSiteIdRestriction("Participant.medicalRecord.mrnSiteId", siteCp);
+				siteCond.add(mrnSite);
 
 				//
 				// When no MRNs exist, site ID should be one of CP site
 				//
 				String cpSite =
 					"Participant.medicalRecord.mrnSiteId not exists and " +
-					"CollectionProtocol.cpSites.siteId = " + siteId;
-
-				siteCond.add(mrnSite);
+					getAqlSiteIdRestriction("CollectionProtocol.cpSites.siteId", siteCp);
 				siteCond.add(cpSite);
 			} else {
 				//
 				// Site ID should be either MRN site or CP site
 				//
-				siteCond.add("Participant.medicalRecord.mrnSiteId = " + siteId);
-				siteCond.add("CollectionProtocol.cpSites.siteId = " + siteId);
+				siteCond.add(getAqlSiteIdRestriction("Participant.medicalRecord.mrnSiteId", siteCp));
+				siteCond.add(getAqlSiteIdRestriction("CollectionProtocol.cpSites.siteId", siteCp));
 			}
 
 			String cond = "(" + StringUtils.join(siteCond, " or ") + ")";
-			if (cpId != null) {
-				cond += " and CollectionProtocol.id = " + cpId;
+			if (siteCp.getCpId() != null) {
+				cond += " and CollectionProtocol.id = " + siteCp.getCpId();
 			}
 
 			cpSitesCond.add("(" + cond + ")");
@@ -159,4 +154,19 @@ public class BiospecimenDaoHelper {
 			.add(Restrictions.eq("institute.id", siteCp.getInstituteId()));
 		return Subqueries.propertyIn(property, subQuery);
 	}
+
+	private String getAqlSiteIdRestriction(String property, SiteCpPair siteCp) {
+		if (siteCp.getSiteId() != null) {
+			return property + " = " + siteCp.getSiteId();
+		} else {
+			return property + " in " + sql(String.format(INSTITUTE_SITE_IDS_SQL, siteCp.getInstituteId()));
+		}
+	}
+
+	private String sql(String sql) {
+		return "sql(\"" + sql + "\")";
+	}
+
+	private static final String INSTITUTE_SITE_IDS_SQL =
+		"select identifier from catissue_site where institute_id = %d and activity_status != 'Disabled'";
 }

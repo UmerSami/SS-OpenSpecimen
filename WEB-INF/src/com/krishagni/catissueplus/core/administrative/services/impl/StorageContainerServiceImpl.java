@@ -70,6 +70,7 @@ import com.krishagni.catissueplus.core.common.Pair;
 import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.RollbackTransaction;
 import com.krishagni.catissueplus.core.common.access.AccessCtrlMgr;
+import com.krishagni.catissueplus.core.common.access.SiteCpPair;
 import com.krishagni.catissueplus.core.common.errors.ErrorCode;
 import com.krishagni.catissueplus.core.common.errors.ErrorType;
 import com.krishagni.catissueplus.core.common.errors.OpenSpecimenException;
@@ -585,12 +586,12 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 				throw OpenSpecimenException.userError(StorageContainerErrorCode.INV_CONT_SEL_STRATEGY, cp.getContainerSelectionStrategy());
 			}
 
-			Set<Pair<Long, Long>> allowedSiteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps(cpId);
+			Set<SiteCpPair> allowedSiteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps(cpId);
 			if (allowedSiteCps != null && allowedSiteCps.isEmpty()) {
 				return ResponseEvent.response(Collections.emptyList());
 			}
 
-			Set<Pair<Long, Long>> reqSiteCps = getRequiredSiteCps(allowedSiteCps, Collections.singleton(cpId));
+			Set<SiteCpPair> reqSiteCps = getRequiredSiteCps(allowedSiteCps, Collections.singleton(cpId));
 			if (CollectionUtils.isEmpty(reqSiteCps)) {
 				return ResponseEvent.response(Collections.emptyList());
 			}
@@ -599,7 +600,10 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 			Date reservationTime = Calendar.getInstance().getTime();
 			List<StorageContainerPosition> reservedPositions = new ArrayList<>();
 			for (ContainerCriteria criteria : op.getCriteria()) {
-				criteria.siteCps(reqSiteCps);
+				//
+				// TODO: RBAC SITES
+				//
+				// criteria.siteCps(reqSiteCps);
 
 				if (StringUtils.isNotBlank(criteria.ruleName())) {
 					ContainerSelectionRule rule = selectionStrategyFactory.getRule(criteria.ruleName());
@@ -879,7 +883,7 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 	}
 
 	private StorageContainerListCriteria addContainerListCriteria(StorageContainerListCriteria crit) {
-		Set<Pair<Long, Long>> allowedSiteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps();
+		Set<SiteCpPair> allowedSiteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps();
 		if (allowedSiteCps != null && allowedSiteCps.isEmpty()) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
@@ -894,15 +898,20 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 		return crit.siteCps(allowedSiteCps);
 	}
 
-	private Set<Pair<Long, Long>> getRequiredSiteCps(Set<Pair<Long, Long>> allowedSiteCps, Set<Long> cpIds) {
-		Set<Pair<Long, Long>> reqSiteCps = daoFactory.getCollectionProtocolDao().getSiteCps(cpIds);
-		if (allowedSiteCps == null) {
-			allowedSiteCps = reqSiteCps;
-		} else {
-			allowedSiteCps = getSiteCps(allowedSiteCps, reqSiteCps);
-		}
+	private Set<SiteCpPair> getRequiredSiteCps(Set<SiteCpPair> allowedSiteCps, Set<Long> cpIds) {
+		//
+		// TODO: RBAC Sites
+		//
+//		Set<Pair<Long, Long>> reqSiteCps = daoFactory.getCollectionProtocolDao().getSiteCps(cpIds);
+//		if (allowedSiteCps == null) {
+//			allowedSiteCps = reqSiteCps;
+//		} else {
+//			allowedSiteCps = getSiteCps(allowedSiteCps, reqSiteCps);
+//		}
+//
+//		return allowedSiteCps;
 
-		return allowedSiteCps;
+		return Collections.emptySet();
 	}
 
 	private Set<Pair<Long, Long>> getSiteCps(Set<Pair<Long, Long>> allowed, Set<Pair<Long, Long>> required) {
@@ -1105,10 +1114,16 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 	}
 
 	private SpecimenListCriteria addSiteCpRestrictions(SpecimenListCriteria crit, StorageContainer container) {
-		Set<Pair<Long, Long>> siteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps();
+		Set<SiteCpPair> siteCps = AccessCtrlMgr.getInstance().getReadAccessContainerSiteCps();
 		if (siteCps != null) {
-			List<Pair<Long, Long>> contSiteCps = siteCps.stream()
-				.filter(siteCp -> siteCp.first().equals(container.getSite().getId()))
+			List<SiteCpPair> contSiteCps = siteCps.stream()
+				.filter(siteCp -> {
+					if (siteCp.getSiteId() == null) {
+						return siteCp.getInstituteId().equals(container.getInstitute().getId());
+					} else {
+						return siteCp.getSiteId().equals(container.getSite().getId());
+					}
+				})
 				.collect(Collectors.toList());
 
 			crit.siteCps(contSiteCps);

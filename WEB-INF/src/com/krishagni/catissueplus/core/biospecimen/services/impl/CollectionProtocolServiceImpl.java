@@ -83,7 +83,6 @@ import com.krishagni.catissueplus.core.biospecimen.repository.CpListCriteria;
 import com.krishagni.catissueplus.core.biospecimen.repository.CprListCriteria;
 import com.krishagni.catissueplus.core.biospecimen.repository.DaoFactory;
 import com.krishagni.catissueplus.core.biospecimen.services.CollectionProtocolService;
-import com.krishagni.catissueplus.core.common.Pair;
 import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.Tuple;
 import com.krishagni.catissueplus.core.common.access.AccessCtrlMgr;
@@ -1939,7 +1938,7 @@ public class CollectionProtocolServiceImpl implements CollectionProtocolService,
 		cfg.setHiddenColumns(hiddenColumns);
 
 		Long cpId = (Long)listReq.get("cpId");
-		List<Pair<Long, Long>> siteCps = AccessCtrlMgr.getInstance().getReadAccessSpecimenSiteCps(cpId);
+		List<SiteCpPair> siteCps = AccessCtrlMgr.getInstance().getReadAccessSpecimenSiteCps(cpId);
 		if (siteCps == null) {
 			//
 			// Admin; hence no additional restrictions
@@ -1951,11 +1950,7 @@ public class CollectionProtocolServiceImpl implements CollectionProtocolService,
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
-		//
-		// TODO: Specimen list API
-		//
-		Set<Long> siteIds = siteCps.stream().map(siteCp -> siteCp.first()).collect(Collectors.toSet());
-//		cfg.setRestriction(getListRestriction(siteIds));
+		cfg.setRestriction(getListRestriction(siteCps));
 		cfg.setDistinct(true);
 		return cfg;
 	}
