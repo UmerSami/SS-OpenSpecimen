@@ -203,12 +203,12 @@ public class AccessCtrlMgr {
 	//          Distribution Protocol object access control helper methods              //
 	//                                                                                  //
 	//////////////////////////////////////////////////////////////////////////////////////
-	public Set<Long> getReadAccessDistributionProtocolSites() {
+	public Set<SiteCpPair> getReadAccessDistributionProtocolSites() {
 		if (AuthUtil.isAdmin()) {
 			return null;
 		}
 
-		return Utility.collect(getSites(Resource.DP, Operation.READ), "id", true);
+		return getSiteCps(Resource.DP, Operation.READ, true);
 	}
 
 	public void ensureReadDpRights(DistributionProtocol dp) {
@@ -1452,7 +1452,19 @@ public class AccessCtrlMgr {
 	// Utility methods                                                   //
 	//                                                                   //
 	///////////////////////////////////////////////////////////////////////
+	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op) {
+		return getSiteCps(resource.getName(), null, new String[] { op.getName() });
+	}
+
+	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op, boolean excludeCps) {
+		return getSiteCps(resource.getName(), null, new String[] { op.getName() }, excludeCps);
+	}
+
 	private Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops) {
+		return getSiteCps(resource, cpId, ops, false);
+	}
+
+	private Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops, boolean excludeCps) {
 		Long userId = AuthUtil.getCurrentUser().getId();
 
 		List<SubjectAccess> accessList;
@@ -1467,7 +1479,7 @@ public class AccessCtrlMgr {
 		for (SubjectAccess access : accessList) {
 			Long siteId = access.getSite() != null ? access.getSite().getId() : null;
 			cpId = access.getCollectionProtocol() != null ? access.getCollectionProtocol().getId() : null;
-			siteCps.add(SiteCpPair.make(instituteId, siteId, cpId));
+			siteCps.add(SiteCpPair.make(instituteId, siteId, !excludeCps ? cpId : null));
 		}
 
 		return siteCps;

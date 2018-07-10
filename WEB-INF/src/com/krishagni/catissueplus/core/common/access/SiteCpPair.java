@@ -33,6 +33,11 @@ public class SiteCpPair {
 		this.cpId = cpId;
 	}
 
+	public boolean isAllowed(SiteCpPair other) {
+		return (getSiteId() != null && getSiteId().equals(other.getSiteId())) ||
+			(getSiteId() == null && getInstituteId().equals(other.getInstituteId()));
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
