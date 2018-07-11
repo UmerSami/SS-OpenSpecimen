@@ -1,8 +1,8 @@
 package com.krishagni.catissueplus.core.common.access;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Configurable;
 
 import com.krishagni.catissueplus.core.administrative.domain.DistributionOrder;
 import com.krishagni.catissueplus.core.administrative.domain.DistributionProtocol;
-import com.krishagni.catissueplus.core.administrative.domain.Institute;
 import com.krishagni.catissueplus.core.administrative.domain.Shipment;
 import com.krishagni.catissueplus.core.administrative.domain.Site;
 import com.krishagni.catissueplus.core.administrative.domain.StorageContainer;
@@ -42,7 +41,6 @@ import com.krishagni.catissueplus.core.common.events.Operation;
 import com.krishagni.catissueplus.core.common.events.Resource;
 import com.krishagni.catissueplus.core.common.util.AuthUtil;
 import com.krishagni.catissueplus.core.common.util.ConfigUtil;
-import com.krishagni.catissueplus.core.common.util.Utility;
 import com.krishagni.catissueplus.core.exporter.services.impl.ExporterContextHolder;
 import com.krishagni.catissueplus.core.importer.services.impl.ImporterContextHolder;
 import com.krishagni.rbac.common.errors.RbacErrorCode;
@@ -117,16 +115,27 @@ public class AccessCtrlMgr {
 		if (AuthUtil.isInstituteAdmin() && user.getInstitute().equals(AuthUtil.getCurrentUserInstitute())) {
 			return;
 		}
-		
-		Set<Site> currentUserSites = getSites(Resource.USER, Operation.UPDATE);
-		Set<Site> updateReqSites = null;
-		if (roleSite == null) {				//this is case of all sites.
-			updateReqSites = user.getInstitute().getSites();
-		} else {
-			updateReqSites = Collections.singleton(roleSite);
+
+
+		boolean allowed = false;
+		Set<SiteCpPair> currentSites = getSiteCps(Resource.USER, Operation.UPDATE);
+		for (SiteCpPair currentSite : currentSites) {
+			if (roleSite == null) {
+				allowed = user.getInstitute().getId().equals(currentSite.getInstituteId());
+			} else {
+				if (currentSite.getSiteId() != null) {
+					allowed = currentSite.getSiteId().equals(roleSite.getId());
+				} else {
+					allowed = currentSite.getInstituteId().equals(roleSite.getInstitute().getId());
+				}
+			}
+
+			if (allowed) {
+				break;
+			}
 		}
-		
-		if (CollectionUtils.intersection(currentUserSites, updateReqSites).isEmpty()) {
+
+		if (!allowed) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
@@ -233,15 +242,9 @@ public class AccessCtrlMgr {
 			return;
 		}
 
-		Set<Site> allowedSites = getSites(Resource.DP, ops);
-		if (allSites) {
-			if (!allowedSites.containsAll(dp.getAllDistributingSites())) {
-				throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
-			}
-		} else {
-			if (CollectionUtils.intersection(allowedSites, dp.getAllDistributingSites()).isEmpty()) {
-				throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
-			}
+		Set<SiteCpPair> allowedSites = getSiteCps(Resource.DP, ops);
+		if (!isAccessAllowedOnSites(allowedSites, dp.getAllowedDistributingSites(), allSites)) {
+			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 	}
 
@@ -884,34 +887,24 @@ public class AccessCtrlMgr {
 		return canUserPerformOp(Resource.ORDER, new Operation[] {Operation.CREATE, Operation.UPDATE});
 	}
 	
-	public Set<Long> getCreateUpdateAccessDistributionOrderSiteIds() {
-		Set<Site> sites = getCreateUpdateAccessDistributionOrderSites();
-		if (sites == null) {
-			return null;
-		}
-
-		return Utility.collect(sites, "id", true);
-	}
-
-	public Set<Site> getCreateUpdateAccessDistributionOrderSites() {
+	public Set<SiteCpPair> getCreateUpdateAccessDistributionOrderSites() {
 		if (AuthUtil.isAdmin()) {
 			return null;
 		}
 		
-		return getSites(Resource.ORDER, new Operation[] {Operation.CREATE, Operation.UPDATE});
+		return getSiteCps(Resource.ORDER, new Operation[] {Operation.CREATE, Operation.UPDATE});
 	}
 	
 	@SuppressWarnings("unchecked")
-	public Set<Long> getDistributionOrderAllowedSites(DistributionProtocol dp) {
-		Set<Site> allowedSites = null;
+	public Set<SiteCpPair> getDistributionOrderAllowedSites(DistributionProtocol dp) {
+		Set<SiteCpPair> dpSites = dp.getAllowedDistributingSites();
+
 		if (AuthUtil.isAdmin()) {
-			allowedSites = dp.getAllDistributingSites();
+			return dpSites;
 		} else {
-			Set<Site> userSites = getSites(Resource.ORDER, new Operation[]{Operation.CREATE, Operation.UPDATE});
-			allowedSites = new HashSet<Site>(CollectionUtils.intersection(userSites, dp.getAllDistributingSites()));
+			Set<SiteCpPair> userAllowedSites = getSiteCps(Resource.ORDER, new Operation[] { Operation.CREATE, Operation.UPDATE });
+			return userAllowedSites.stream().filter(allowedSite -> SiteCpPair.contains(dpSites, allowedSite)).collect(Collectors.toSet());
 		}
-		
-		return Utility.<Set<Long>>collect(allowedSites, "id", true);
 	}
 
 	public void ensureCreateDistributionOrderRights(DistributionOrder order) {
@@ -953,9 +946,8 @@ public class AccessCtrlMgr {
 			return;
 		}
 
-		Set<Site> allowedSites = getSites(Resource.ORDER, op);
-		Set<Site> distributingSites = dp.getAllDistributingSites();
-		if (CollectionUtils.intersection(allowedSites, distributingSites).isEmpty()) {
+		Set<SiteCpPair> allowedSites = getSiteCps(Resource.ORDER, op);
+		if (!SiteCpPair.contains(allowedSites, dp.getAllowedDistributingSites())) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 	}
@@ -1060,50 +1052,6 @@ public class AccessCtrlMgr {
 		return false;
 	}
 
-	public Set<Site> getSites(Resource resource, Operation op) {
-		return getSites(resource, new Operation[] { op });
-	}
-
-	public Set<Site> getSites(Resource resource, Operation[] operations) {
-		return getSites(resource.getName(), operations);
-	}
-
-	public Set<Site> getSites(String resource, Operation[] operations) {
-		User user = AuthUtil.getCurrentUser();
-
-		//
-		// Below conditional is an optimisation in that it is assumed an insitute admin will have
-		// permissions to perform "operations" on "resource" on all sites...
-		//
-		if (AuthUtil.isInstituteAdmin()) {
-			return getUserInstituteSites(user.getId());
-		}
-
-		String[] ops = new String[operations.length];
-		for (int i = 0; i < operations.length; i++ ) {
-			ops[i] = operations[i].getName();
-		}
-
-		List<SubjectAccess> accessList = daoFactory.getSubjectDao().getAccessList(user.getId(), resource, ops);
-		Set<Site> results = new HashSet<Site>();
-		boolean allSites = false;
-		for (SubjectAccess access : accessList) {
-			if (access.getSite() == null) {
-				allSites = true;
-				break;
-			}
-
-			results.add(access.getSite());
-		}
-
-		if (allSites) {
-			results.clear();
-			results.addAll(getUserInstituteSites(user.getId()));
-		}
-
-		return results;
-	}
-
 	public Set<Long> getEligibleCpIds(String resource, String op, List<String> siteNames) {
 		return getEligibleCpIds(resource, new String[] {op}, siteNames);
 	}
@@ -1143,14 +1091,14 @@ public class AccessCtrlMgr {
 		return cpIds;
 	}
 
-	private Set<Site> getUserInstituteSites(Long userId) {
-		return getUserInstitute(userId).getSites();
-	}
+//	private Set<Site> getUserInstituteSites(Long userId) {
+//		return getUserInstitute(userId).getSites();
+//	}
 
-	private Institute getUserInstitute(Long userId) {
-		User user = bsDaoFactory.getUserDao().getById(userId);
-		return user.getInstitute();
-	}
+//	private Institute getUserInstitute(Long userId) {
+//		User user = bsDaoFactory.getUserDao().getById(userId);
+//		return user.getInstitute();
+//	}
 
 	private boolean canUserPerformOp(Resource resource, Operation[] ops) {
 		if (AuthUtil.isAdmin()) {
@@ -1301,35 +1249,16 @@ public class AccessCtrlMgr {
 		return canUserPerformOp(Resource.SHIPPING_N_TRACKING, new Operation[] {Operation.CREATE, Operation.UPDATE});
 	}
 	
-	public Set<Long> getCreateUpdateAccessShipmentSiteIds() {
-		Set<Site> sites = getCreateUpdateAccessShipmentSites();
-		if (sites == null) {
-			return null;
-		}
-
-		return Utility.collect(sites, "id", true);
-	}
-
-	public Set<Site> getCreateUpdateAccessShipmentSites() {
-		if (AuthUtil.isAdmin()) {
-			return null;
-		}
-		
-		return getSites(Resource.SHIPPING_N_TRACKING, new Operation[] {Operation.CREATE, Operation.UPDATE});
-	}
-	
 	public void ensureReadShipmentRights(Shipment shipment) {
 		if (AuthUtil.isAdmin()) {
 			return;
 		}
 
-		// TODO: RBAC SITES
-		// Set<Site> allowedSites = getReadAccessShipmentSites();
-		Set<Site> allowedSites = new HashSet<>();
-		boolean sendSiteAccess = allowedSites.contains(shipment.getSendingSite());
-		boolean recvSiteAccess = !shipment.isPending() && allowedSites.contains(shipment.getReceivingSite());
-		if (!sendSiteAccess && !recvSiteAccess) {
-			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
+		Set<SiteCpPair> allowedSites = getReadAccessShipmentSites();
+		if (!isAccessAllowedOnSite(allowedSites, shipment.getSendingSite())) {
+			if (shipment.isPending() || !isAccessAllowedOnSite(allowedSites, shipment.getReceivingSite())) {
+				throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
+			}
 		}
 
 		ensureShipmentEximRights();
@@ -1339,8 +1268,9 @@ public class AccessCtrlMgr {
 		if (AuthUtil.isAdmin()) {
 			return;
 		}
-		
-		if (CollectionUtils.isEmpty(getSites(Resource.SHIPPING_N_TRACKING, Operation.CREATE))) {
+
+		Set<SiteCpPair> allowedSites = getSiteCps(Resource.SHIPPING_N_TRACKING, Operation.CREATE);
+		if (allowedSites.isEmpty()) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
@@ -1353,12 +1283,12 @@ public class AccessCtrlMgr {
 		}
 
 		boolean allowed = false;
-		Set<Site> allowedSites = getSites(Resource.SHIPPING_N_TRACKING, Operation.UPDATE);
-		if (!shipment.isReceived() && allowedSites.contains(shipment.getSendingSite())) {
-			allowed = true; // sender can update
+		Set<SiteCpPair> allowedSites = getSiteCps(Resource.SHIPPING_N_TRACKING, Operation.UPDATE);
+		if (!shipment.isReceived() && isAccessAllowedOnSite(allowedSites, shipment.getSendingSite())) {
+			allowed = true; // send can update
 		}
-		
-		if (shipment.isReceived() && allowedSites.contains(shipment.getReceivingSite())) {
+
+		if (shipment.isReceived() && isAccessAllowedOnSite(allowedSites, shipment.getReceivingSite())) {
 			allowed = true; // receiver can update
 		}
 
@@ -1370,7 +1300,7 @@ public class AccessCtrlMgr {
 	}
 
 	private void ensureShipmentEximRights() {
-		if ((isImportOp() || isExportOp()) && CollectionUtils.isEmpty(getSites(Resource.SHIPPING_N_TRACKING, Operation.EXIM))) {
+		if ((isImportOp() || isExportOp()) && getSiteCps(Resource.SHIPPING_N_TRACKING, Operation.EXIM).isEmpty()) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 	}
@@ -1438,6 +1368,11 @@ public class AccessCtrlMgr {
 	///////////////////////////////////////////////////////////////////////
 	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op) {
 		return getSiteCps(resource.getName(), null, new String[] { op.getName() }, true);
+	}
+
+	private Set<SiteCpPair> getSiteCps(Resource resource, Operation[] ops) {
+		String[] opNames = Arrays.stream(ops).map(Operation::getName).toArray(String[]::new);
+		return getSiteCps(resource.getName(), null, opNames, true);
 	}
 
 	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op, boolean excludeCps) {
@@ -1514,9 +1449,22 @@ public class AccessCtrlMgr {
 		return allowed;
 	}
 
-	private boolean isAccessAllowedOnSite(Site accessSite, Site site) {
-		return (accessSite != null && accessSite.equals(site)) ||
-				(accessSite == null && AuthUtil.getCurrentUserInstitute().equals(site.getInstitute()));
+	private boolean isAccessAllowedOnSite(Site allowedSite, Site site) {
+		return (allowedSite != null && allowedSite.equals(site)) ||
+				(allowedSite == null && AuthUtil.getCurrentUserInstitute().equals(site.getInstitute()));
+	}
+
+	private boolean isAccessAllowedOnSite(SiteCpPair allowedSite, Site site) {
+		return (allowedSite.getSiteId() != null && allowedSite.getSiteId().equals(site.getId())) ||
+			(allowedSite.getSiteId() == null && allowedSite.getInstituteId().equals(site.getInstitute().getId()));
+	}
+
+	private boolean isAccessAllowedOnSite(Collection<SiteCpPair> allowedSites, Site testSite) {
+		return allowedSites.stream().anyMatch(allowedSite -> isAccessAllowedOnSite(allowedSite, testSite));
+	}
+
+	private boolean isAccessAllowedOnSites(Collection<SiteCpPair> allowedSites, Collection<SiteCpPair> testSites, boolean allSites) {
+		return allSites ? SiteCpPair.containsAll(allowedSites, testSites) : SiteCpPair.contains(allowedSites, testSites);
 	}
 
 	private boolean isImportOp() {

@@ -544,10 +544,11 @@ public class ShipmentServiceImpl implements ShipmentService, ObjectAccessor {
 	}
 
 	private void ensureValidSpecimenRecvSites(Map<Long, Specimen> specimenMap, Site receivingSite, OpenSpecimenException ose) {
-		Map<Long, Set<Long>> spmnSites = daoFactory.getSpecimenDao().getSpecimenSites(specimenMap.keySet());
+		Map<Long, Set<SiteCpPair>> spmnSites = daoFactory.getSpecimenDao().getSpecimenSites(specimenMap.keySet());
 
+		SiteCpPair recvInstituteSite = SiteCpPair.make(receivingSite.getInstitute().getId(), receivingSite.getId(), null);
 		String invalidSpmnLabels = spmnSites.entrySet().stream()
-			.filter(spmnSite -> !spmnSite.getValue().contains(receivingSite.getId()))
+			.filter(spmnSite -> !SiteCpPair.contains(spmnSite.getValue(), recvInstituteSite))
 			.map(spmnSite -> specimenMap.get(spmnSite.getKey()).getLabel())
 			.collect(Collectors.joining(", "));
 

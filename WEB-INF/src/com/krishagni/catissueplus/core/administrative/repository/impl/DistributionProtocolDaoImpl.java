@@ -124,14 +124,10 @@ public class DistributionProtocolDaoImpl extends AbstractDao<DistributionProtoco
 		query.add(Restrictions.eq("status", DistributionOrder.Status.EXECUTED));
 		if (listCrit.dpId() != null) {
 			query.add(Restrictions.eq("distributionProtocol.id", listCrit.dpId()));
-		} else if (CollectionUtils.isNotEmpty(listCrit.siteIds())) {
+		} else if (CollectionUtils.isNotEmpty(listCrit.sites())) {
 			query.createAlias("distributionProtocol", "dp")
 				.createAlias("dp.distributingSites", "distSites");
-
-			//
-			// TODO: RBAC SITES
-			//
-			// addSitesCondition(query, listCrit.siteIds());
+			addSitesCondition(query, listCrit.sites());
 		}
 		
 		addOrderStatProjections(query, listCrit);

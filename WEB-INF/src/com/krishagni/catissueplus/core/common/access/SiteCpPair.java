@@ -1,5 +1,7 @@
 package com.krishagni.catissueplus.core.common.access;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Objects;
 
 public class SiteCpPair {
@@ -64,6 +66,55 @@ public class SiteCpPair {
 		result.setInstituteId(instituteId);
 		result.setSiteId(siteId);
 		result.setCpId(cpId);
+		return result;
+	}
+
+	public static boolean contains(Collection<SiteCpPair> domainSites, SiteCpPair testSite) {
+		return contains(domainSites, Collections.singleton(testSite));
+	}
+
+	public static boolean contains(Collection<SiteCpPair> domainSites, Collection<SiteCpPair> testSites) {
+		return contains(domainSites, testSites, false);
+	}
+
+	public static boolean containsAll(Collection<SiteCpPair> domainSites, Collection<SiteCpPair> testSites) {
+		return contains(domainSites, testSites, true);
+	}
+
+	private static boolean contains(Collection<SiteCpPair> domainSites, Collection<SiteCpPair> testSites, boolean allSites) {
+		boolean result = true;
+		for (SiteCpPair testSite : testSites) {
+			boolean allowed = false;
+			for (SiteCpPair domainSite : domainSites) {
+				if (testSite.getSiteId() == null) {
+					allowed = (domainSite.getSiteId() == null && domainSite.getInstituteId().equals(testSite.getInstituteId()));
+				} else {
+					allowed = (domainSite.getSiteId() != null && domainSite.getSiteId().equals(testSite.getSiteId())) ||
+						(domainSite.getSiteId() == null && domainSite.getInstituteId().equals(testSite.getInstituteId()));
+				}
+
+				if (allowed) {
+					break;
+				}
+			}
+
+			if (allSites) {
+				if (!allowed) {
+					result = false;
+					break;
+				} else {
+					result = true;
+				}
+			} else {
+				if (allowed) {
+					result = true;
+					break;
+				} else {
+					result = false;
+				}
+			}
+		}
+
 		return result;
 	}
 }

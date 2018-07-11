@@ -807,10 +807,9 @@ public class DistributionOrderServiceImpl implements DistributionOrderService, O
 		// This implicitly means specimens with DPs have been pre-validated
 		//
 		Map<Long, Specimen> specimenMap = spmnWithoutDps.stream().collect(Collectors.toMap(Specimen::getId, Function.identity()));
-		Map<Long, Set<Long>> spmnSitesMap = daoFactory.getSpecimenDao().getSpecimenSites(spmnWithoutDps.stream().map(Specimen::getId).collect(Collectors.toSet()));
+		Map<Long, Set<SiteCpPair>> spmnSites = daoFactory.getSpecimenDao().getSpecimenSites(spmnWithoutDps.stream().map(Specimen::getId).collect(Collectors.toSet()));
 
-		Set<Long> dpSites = dp.getAllDistributingSites().stream().map(Site::getId).collect(Collectors.toSet());
-		String errorLabels = notAllowedSpecimenLabels(specimenMap, spmnSitesMap, dpSites);
+		String errorLabels = notAllowedSpecimenLabels(specimenMap, spmnSites, dp.getAllowedDistributingSites());
 		if (StringUtils.isNotBlank(errorLabels)) {
 			ose.addError(DistributionOrderErrorCode.INVALID_SPECIMENS_FOR_DP, errorLabels, dp.getShortTitle());
 			return;
@@ -820,17 +819,17 @@ public class DistributionOrderServiceImpl implements DistributionOrderService, O
 			return;
 		}
 
-		Set<Long> allowedSites = AccessCtrlMgr.getInstance().getDistributionOrderAllowedSites(dp);
-		errorLabels = notAllowedSpecimenLabels(specimenMap, spmnSitesMap, allowedSites);
+		Set<SiteCpPair> allowedSites = AccessCtrlMgr.getInstance().getDistributionOrderAllowedSites(dp);
+		errorLabels = notAllowedSpecimenLabels(specimenMap, spmnSites, allowedSites);
 		if (StringUtils.isNotBlank(errorLabels)) {
 			ose.addError(DistributionOrderErrorCode.SPMNS_DENIED, errorLabels);
 		}
 	}
 
-	private String notAllowedSpecimenLabels(Map<Long, Specimen> specimenMap, Map<Long, Set<Long>> spmnSitesMap, Set<Long> allowedSites) {
-		return spmnSitesMap.entrySet().stream()
-			.filter(spmnSites -> CollectionUtils.intersection(spmnSites.getValue(), allowedSites).isEmpty())
-			.map(spmnSites -> specimenMap.get(spmnSites.getKey()).getLabel())
+	private String notAllowedSpecimenLabels(Map<Long, Specimen> specimenMap, Map<Long, Set<SiteCpPair>> spmnSites, Set<SiteCpPair> allowedSites) {
+		return spmnSites.entrySet().stream()
+			.filter(spmnSite -> !SiteCpPair.contains(allowedSites, spmnSite.getValue()))
+			.map(spmnSite -> specimenMap.get(spmnSite.getKey()).getLabel())
 			.limit(10)
 			.collect(Collectors.joining(", "));
 	}

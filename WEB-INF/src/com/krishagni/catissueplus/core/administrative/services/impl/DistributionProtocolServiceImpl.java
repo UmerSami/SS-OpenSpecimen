@@ -778,13 +778,13 @@ public class DistributionProtocolServiceImpl implements DistributionProtocolServ
 			DistributionProtocol dp = getDistributionProtocol(crit.dpId());
 			AccessCtrlMgr.getInstance().ensureReadDpRights(dp);
 		} else {
-			Set<Long> siteIds = AccessCtrlMgr.getInstance().getCreateUpdateAccessDistributionOrderSiteIds();
-			if (siteIds != null && CollectionUtils.isEmpty(siteIds)) {
+			Set<SiteCpPair> sites = AccessCtrlMgr.getInstance().getCreateUpdateAccessDistributionOrderSites();
+			if (sites != null && sites.isEmpty()) {
 				throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 			}
 			
-			if (siteIds != null) {
-				crit.siteIds(siteIds);
+			if (sites != null) {
+				crit.sites(sites);
 			}
 		}
 		
