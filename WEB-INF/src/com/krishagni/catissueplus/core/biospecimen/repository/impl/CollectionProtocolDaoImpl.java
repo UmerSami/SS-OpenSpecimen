@@ -30,7 +30,7 @@ import com.krishagni.catissueplus.core.biospecimen.domain.SpecimenRequirement;
 import com.krishagni.catissueplus.core.biospecimen.events.CollectionProtocolSummary;
 import com.krishagni.catissueplus.core.biospecimen.repository.CollectionProtocolDao;
 import com.krishagni.catissueplus.core.biospecimen.repository.CpListCriteria;
-import com.krishagni.catissueplus.core.common.Pair;
+import com.krishagni.catissueplus.core.common.access.SiteCpPair;
 import com.krishagni.catissueplus.core.common.events.UserSummary;
 import com.krishagni.catissueplus.core.common.repository.AbstractDao;
 import com.krishagni.catissueplus.core.common.util.Status;
@@ -186,13 +186,12 @@ public class CollectionProtocolDaoImpl extends AbstractDao<CollectionProtocol> i
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public Set<Pair<Long, Long>> getSiteCps(Collection<Long> cpIds) {
+	public Set<SiteCpPair> getSiteCps(Collection<Long> cpIds) {
 		List<Object[]> rows = getSessionFactory().getCurrentSession()
 				.getNamedQuery(GET_SITE_IDS_BY_CP_IDS)
 				.setParameterList("cpIds", cpIds)
 				.list();
-
-		return rows.stream().map(row -> Pair.make((Long)row[1], (Long)row[0])).collect(Collectors.toSet());
+		return rows.stream().map(row -> SiteCpPair.make((Long) row[1], (Long) row[2], (Long) row[0])).collect(Collectors.toSet());
 	}
 	
 	@Override

@@ -288,7 +288,7 @@
 
     <query name="getRepoIdsByCps">
       select 
-        cp.id, site.id
+        cp.id, site.institute.id, site.id
       from
         com.krishagni.catissueplus.core.biospecimen.domain.CollectionProtocol cp
         join cp.sites cpSite

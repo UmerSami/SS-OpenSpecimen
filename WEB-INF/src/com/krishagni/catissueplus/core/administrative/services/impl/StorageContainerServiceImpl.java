@@ -600,10 +600,7 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 			Date reservationTime = Calendar.getInstance().getTime();
 			List<StorageContainerPosition> reservedPositions = new ArrayList<>();
 			for (ContainerCriteria criteria : op.getCriteria()) {
-				//
-				// TODO: RBAC SITES
-				//
-				// criteria.siteCps(reqSiteCps);
+				criteria.siteCps(reqSiteCps);
 
 				if (StringUtils.isNotBlank(criteria.ruleName())) {
 					ContainerSelectionRule rule = selectionStrategyFactory.getRule(criteria.ruleName());
@@ -899,30 +896,29 @@ public class StorageContainerServiceImpl implements StorageContainerService, Obj
 	}
 
 	private Set<SiteCpPair> getRequiredSiteCps(Set<SiteCpPair> allowedSiteCps, Set<Long> cpIds) {
-		//
-		// TODO: RBAC Sites
-		//
-//		Set<Pair<Long, Long>> reqSiteCps = daoFactory.getCollectionProtocolDao().getSiteCps(cpIds);
-//		if (allowedSiteCps == null) {
-//			allowedSiteCps = reqSiteCps;
-//		} else {
-//			allowedSiteCps = getSiteCps(allowedSiteCps, reqSiteCps);
-//		}
-//
-//		return allowedSiteCps;
+		Set<SiteCpPair> reqSiteCps = daoFactory.getCollectionProtocolDao().getSiteCps(cpIds);
+		if (allowedSiteCps == null) {
+			allowedSiteCps = reqSiteCps;
+		} else {
+			allowedSiteCps = getSiteCps(allowedSiteCps, reqSiteCps);
+		}
 
-		return Collections.emptySet();
+		return allowedSiteCps;
 	}
 
-	private Set<Pair<Long, Long>> getSiteCps(Set<Pair<Long, Long>> allowed, Set<Pair<Long, Long>> required) {
-		Set<Pair<Long, Long>> result = new HashSet<>();
-		for (Pair<Long, Long> reqSiteCp : required) {
-			for (Pair<Long, Long> allowedSiteCp : allowed) {
-				if (!allowedSiteCp.first().equals(reqSiteCp.first())) {
+	private Set<SiteCpPair> getSiteCps(Set<SiteCpPair> allowed, Set<SiteCpPair> required) {
+		Set<SiteCpPair> result = new HashSet<>();
+		for (SiteCpPair reqSiteCp : required) {
+			for (SiteCpPair allowedSiteCp : allowed) {
+				if (allowedSiteCp.getSiteId() != null && !allowedSiteCp.getSiteId().equals(reqSiteCp.getSiteId())) {
 					continue;
 				}
 
-				if (allowedSiteCp.second() != null && !allowedSiteCp.second().equals(reqSiteCp.second())) {
+				if (allowedSiteCp.getSiteId() == null && !allowedSiteCp.getInstituteId().equals(reqSiteCp.getInstituteId())) {
+					continue;
+				}
+
+				if (allowedSiteCp.getCpId() != null && !allowedSiteCp.getCpId().equals(reqSiteCp.getCpId())) {
 					continue;
 				}
 

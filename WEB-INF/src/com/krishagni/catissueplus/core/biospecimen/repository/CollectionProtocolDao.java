@@ -13,7 +13,7 @@ import com.krishagni.catissueplus.core.biospecimen.domain.CpConsentTier;
 import com.krishagni.catissueplus.core.biospecimen.domain.CpWorkflowConfig;
 import com.krishagni.catissueplus.core.biospecimen.domain.SpecimenRequirement;
 import com.krishagni.catissueplus.core.biospecimen.events.CollectionProtocolSummary;
-import com.krishagni.catissueplus.core.common.Pair;
+import com.krishagni.catissueplus.core.common.access.SiteCpPair;
 import com.krishagni.catissueplus.core.common.repository.Dao;
 
 public interface CollectionProtocolDao extends Dao<CollectionProtocol> {
@@ -42,7 +42,7 @@ public interface CollectionProtocolDao extends Dao<CollectionProtocol> {
 
 	public Map<String, Object> getCpIds(String key, Object value);
 	
-	public Set<Pair<Long, Long>> getSiteCps(Collection<Long> cpIds);
+	public Set<SiteCpPair> getSiteCps(Collection<Long> cpIds);
 
 	public CollectionProtocolEvent getCpe(Long cpeId);
 	
