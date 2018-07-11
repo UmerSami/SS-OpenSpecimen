@@ -502,13 +502,13 @@ public class DistributionOrderServiceImpl implements DistributionOrderService, O
 	}
 
 	private DistributionOrderListCriteria addOrderListCriteria(DistributionOrderListCriteria crit) {
-		Set<Long> siteIds = AccessCtrlMgr.getInstance().getReadAccessDistributionOrderSites();
-		if (siteIds != null && siteIds.isEmpty()) {
+		Set<SiteCpPair> sites = AccessCtrlMgr.getInstance().getReadAccessDistributionOrderSites();
+		if (sites != null && sites.isEmpty()) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
-		if (siteIds != null) {
-			crit.siteIds(siteIds);
+		if (sites != null) {
+			crit.sites(sites);
 		}
 
 		return crit;

@@ -876,12 +876,8 @@ public class AccessCtrlMgr {
 	//                                                                                  //
 	//////////////////////////////////////////////////////////////////////////////////////
 	
-	public Set<Long> getReadAccessDistributionOrderSites() {
-		if (AuthUtil.isAdmin()) {
-			return null;
-		}
-		
-		return Utility.<Set<Long>>collect(getSites(Resource.ORDER, Operation.READ), "id", true);
+	public Set<SiteCpPair> getReadAccessDistributionOrderSites() {
+		return getSiteCps(Resource.ORDER, Operation.READ);
 	}
 	
 	public boolean canCreateUpdateDistributionOrder() {
@@ -1453,7 +1449,7 @@ public class AccessCtrlMgr {
 	//                                                                   //
 	///////////////////////////////////////////////////////////////////////
 	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op) {
-		return getSiteCps(resource.getName(), null, new String[] { op.getName() });
+		return getSiteCps(resource.getName(), null, new String[] { op.getName() }, true);
 	}
 
 	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op, boolean excludeCps) {
@@ -1465,8 +1461,11 @@ public class AccessCtrlMgr {
 	}
 
 	private Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops, boolean excludeCps) {
-		Long userId = AuthUtil.getCurrentUser().getId();
+		if (AuthUtil.isAdmin()) {
+			return null;
+		}
 
+		Long userId = AuthUtil.getCurrentUser().getId();
 		List<SubjectAccess> accessList;
 		if (cpId != null) {
 			accessList = daoFactory.getSubjectDao().getAccessList(userId, cpId, resource, ops);

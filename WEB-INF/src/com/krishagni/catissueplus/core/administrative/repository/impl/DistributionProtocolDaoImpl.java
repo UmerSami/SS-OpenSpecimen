@@ -309,7 +309,7 @@ public class DistributionProtocolDaoImpl extends AbstractDao<DistributionProtoco
 	}
 	
 	private void addSitesCondition(Criteria query, Set<SiteCpPair> sites) {
-		Set<Long> siteIds = new HashSet<>();
+		Set<Long> siteIds      = new HashSet<>();
 		Set<Long> instituteIds = new HashSet<>();
 		for (SiteCpPair site : sites) {
 			if (site.getSiteId() != null) {
@@ -323,15 +323,6 @@ public class DistributionProtocolDaoImpl extends AbstractDao<DistributionProtoco
 			.createAlias("distSites.institute", "distInst")
 			.createAlias("distInst.sites", "instSite");
 
-		Disjunction siteConds = Restrictions.disjunction();
-		if (!siteIds.isEmpty()) {
-			siteConds.add(Restrictions.in("distSite.id", siteIds));
-		}
-
-		if (!instituteIds.isEmpty()) {
-			siteConds.add(isSiteOfInstitute("distSite.id", instituteIds));
-		}
-
 		Disjunction instituteConds = Restrictions.disjunction();
 		if (!siteIds.isEmpty()) {
 			instituteConds.add(Restrictions.in("instSite.id", siteIds));
@@ -341,6 +332,14 @@ public class DistributionProtocolDaoImpl extends AbstractDao<DistributionProtoco
 			instituteConds.add(Restrictions.in("distInst.id", instituteIds));
 		}
 
+		Disjunction siteConds = Restrictions.disjunction();
+		if (!siteIds.isEmpty()) {
+			siteConds.add(Restrictions.in("distSite.id", siteIds));
+		}
+
+		if (!instituteIds.isEmpty()) {
+			siteConds.add(isSiteOfInstitute("distSite.id", instituteIds));
+		}
 
 		query.add(Restrictions.or(
 			Restrictions.and(Restrictions.isNull("distSites.site"), instituteConds),
@@ -349,14 +348,11 @@ public class DistributionProtocolDaoImpl extends AbstractDao<DistributionProtoco
 	}
 
 	private Criterion isSiteOfInstitute(String property, Collection<Long> instituteIds) {
-		DetachedCriteria subQuery = DetachedCriteria.forClass(Site.class, "s")
-			.createAlias("s.institute", "institute")
+		DetachedCriteria subQuery = DetachedCriteria.forClass(Site.class)
 			.add(Restrictions.in("institute.id", instituteIds))
-			.setProjection(Projections.property("s.id"));
+			.setProjection(Projections.property("id"));
 		return Subqueries.propertyIn(property, subQuery);
 	}
-
-
 
 	private static final String FQN = DistributionProtocol.class.getName();
 
