@@ -1271,20 +1271,13 @@ public class CollectionProtocolServiceImpl implements CollectionProtocolService,
 		if (user.isAdmin()) {
 			return;
 		}
-		
-		user = loadUser(user);
-		
-		Set<Site> userSites = user.getInstitute().getSites();
-		Set<Site> cpSites = cp.getRepositories();		
-		if (!userSites.containsAll(cpSites)) {
+
+		Set<Site> cpSites = cp.getRepositories();
+		if (cpSites.stream().anyMatch(cpSite -> !cpSite.getInstitute().equals(AuthUtil.getCurrentUserInstitute()))) {
 			throw OpenSpecimenException.userError(CpErrorCode.CREATOR_DOES_NOT_BELONG_CP_REPOS);
 		}
 	}
 	
-	private User loadUser(User user) {
-		return daoFactory.getUserDao().getById(user.getId());
-	}
-
 	private void ensureUniqueTitle(CollectionProtocol existingCp, CollectionProtocol cp, OpenSpecimenException ose) {
 		String title = cp.getTitle();
 		if (existingCp != null && existingCp.getTitle().equals(title)) {

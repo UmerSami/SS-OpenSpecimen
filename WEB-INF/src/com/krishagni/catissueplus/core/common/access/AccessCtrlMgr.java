@@ -1091,15 +1091,6 @@ public class AccessCtrlMgr {
 		return cpIds;
 	}
 
-//	private Set<Site> getUserInstituteSites(Long userId) {
-//		return getUserInstitute(userId).getSites();
-//	}
-
-//	private Institute getUserInstitute(Long userId) {
-//		User user = bsDaoFactory.getUserDao().getById(userId);
-//		return user.getInstitute();
-//	}
-
 	private boolean canUserPerformOp(Resource resource, Operation[] ops) {
 		if (AuthUtil.isAdmin()) {
 			return true;
