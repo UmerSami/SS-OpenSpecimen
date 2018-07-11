@@ -1496,16 +1496,14 @@ public class AccessCtrlMgr {
 	}
 
 	private boolean isAccessAllowedOnAnySite(List<SubjectAccess> accessList, Set<Site> sites, Long userId) {
-		boolean allowed = false;
+		boolean allowed = false, userInstituteCheckDone = false;
 		for (SubjectAccess access : accessList) {
 			Site accessSite = access.getSite();
 			if (accessSite != null && sites.contains(accessSite)) { // Specific site
 				allowed = true;
-			} else if (accessSite == null) { // All user institute sites
-				Set<Site> institueSites = getUserInstituteSites(userId);
-				if (CollectionUtils.containsAny(institueSites, sites)) {
-					allowed = true;
-				}
+			} else if (accessSite == null && !userInstituteCheckDone) { // All user institute sites
+				userInstituteCheckDone = true;
+				allowed = sites.stream().anyMatch(s -> s.getInstitute().equals(AuthUtil.getCurrentUserInstitute()));
 			}
 
 			if (allowed) {
