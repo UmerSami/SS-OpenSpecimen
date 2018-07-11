@@ -565,7 +565,7 @@ public class AccessCtrlMgr {
 		if (!allowed) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
-		
+
 		if (!isAccessRestrictedBasedOnMrn()) {
 			return phiAccess;
 		}
@@ -740,7 +740,7 @@ public class AccessCtrlMgr {
 		}
 
 		ensureVisitAndSpecimenObjectRights(cpr, Resource.VISIT_N_SPECIMEN, ops);
-		return checkPhiAccess ? ensurePhiRights(cpr, op) : false;
+		return checkPhiAccess && ensurePhiRights(cpr, op);
 	}
 
 	private void ensureVisitAndSpecimenEximRights(CollectionProtocolRegistration registration) {
@@ -849,7 +849,7 @@ public class AccessCtrlMgr {
 		Set<CollectionProtocol> allowedCps = container.getCompAllowedCps();
 		List<SubjectAccess> accessList = daoFactory.getSubjectDao().getAccessList(userId, resource, ops);
 		for (SubjectAccess access : accessList) {
-			if (isAccessAllowedOnSite(access.getSite(), container.getSite(), userId)) {
+			if (isAccessAllowedOnSite(access.getSite(), container.getSite())) {
 				CollectionProtocol accessCp = access.getCollectionProtocol();
 				allowed = (accessCp == null || CollectionUtils.isEmpty(allowedCps) || allowedCps.contains(accessCp));
 			}
@@ -1514,9 +1514,9 @@ public class AccessCtrlMgr {
 		return allowed;
 	}
 
-	private boolean isAccessAllowedOnSite(Site accessSite, Site site, Long userId) {
+	private boolean isAccessAllowedOnSite(Site accessSite, Site site) {
 		return (accessSite != null && accessSite.equals(site)) ||
-				(accessSite == null && getUserInstituteSites(userId).contains(site));
+				(accessSite == null && AuthUtil.getCurrentUserInstitute().equals(site.getInstitute()));
 	}
 
 	private boolean isImportOp() {
