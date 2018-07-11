@@ -1357,24 +1357,24 @@ public class AccessCtrlMgr {
 	// Utility methods                                                   //
 	//                                                                   //
 	///////////////////////////////////////////////////////////////////////
-	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op) {
+	public Set<SiteCpPair> getSiteCps(Resource resource, Operation op) {
 		return getSiteCps(resource.getName(), null, new String[] { op.getName() }, true);
 	}
 
-	private Set<SiteCpPair> getSiteCps(Resource resource, Operation[] ops) {
+	public Set<SiteCpPair> getSiteCps(Resource resource, Operation[] ops) {
 		String[] opNames = Arrays.stream(ops).map(Operation::getName).toArray(String[]::new);
 		return getSiteCps(resource.getName(), null, opNames, true);
 	}
 
-	private Set<SiteCpPair> getSiteCps(Resource resource, Operation op, boolean excludeCps) {
+	public Set<SiteCpPair> getSiteCps(Resource resource, Operation op, boolean excludeCps) {
 		return getSiteCps(resource.getName(), null, new String[] { op.getName() }, excludeCps);
 	}
 
-	private Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops) {
+	public Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops) {
 		return getSiteCps(resource, cpId, ops, false);
 	}
 
-	private Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops, boolean excludeCps) {
+	public Set<SiteCpPair> getSiteCps(String resource, Long cpId, String[] ops, boolean excludeCps) {
 		if (AuthUtil.isAdmin()) {
 			return null;
 		}
