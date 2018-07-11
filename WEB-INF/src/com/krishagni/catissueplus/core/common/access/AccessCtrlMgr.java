@@ -1293,22 +1293,8 @@ public class AccessCtrlMgr {
 	//        Shipping and Tracking access control helper methods        //
 	//                                                                   //
 	///////////////////////////////////////////////////////////////////////
-
-	public Set<Long> getReadAccessShipmentSiteIds() {
-		Set<Site> sites = getReadAccessShipmentSites();
-		if (sites == null) {
-			return null;
-		}
-
-		return Utility.collect(sites, "id", true);
-	}
-
-	public Set<Site> getReadAccessShipmentSites() {
-		if (AuthUtil.isAdmin()) {
-			return null;
-		}
-		
-		return getSites(Resource.SHIPPING_N_TRACKING, Operation.READ);
+	public Set<SiteCpPair> getReadAccessShipmentSites() {
+		return getSiteCps(Resource.SHIPPING_N_TRACKING, Operation.READ);
 	}
 
 	public boolean canCreateUpdateShipment() {
@@ -1337,7 +1323,9 @@ public class AccessCtrlMgr {
 			return;
 		}
 
-		Set<Site> allowedSites = getReadAccessShipmentSites();
+		// TODO: RBAC SITES
+		// Set<Site> allowedSites = getReadAccessShipmentSites();
+		Set<Site> allowedSites = new HashSet<>();
 		boolean sendSiteAccess = allowedSites.contains(shipment.getSendingSite());
 		boolean recvSiteAccess = !shipment.isPending() && allowedSites.contains(shipment.getReceivingSite());
 		if (!sendSiteAccess && !recvSiteAccess) {

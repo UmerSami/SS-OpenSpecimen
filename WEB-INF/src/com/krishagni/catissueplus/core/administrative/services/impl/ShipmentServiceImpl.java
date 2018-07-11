@@ -352,13 +352,13 @@ public class ShipmentServiceImpl implements ShipmentService, ObjectAccessor {
 	}
 
 	private ShipmentListCriteria addShipmentListCriteria(ShipmentListCriteria crit) {
-		Set<Long> siteIds = AccessCtrlMgr.getInstance().getReadAccessShipmentSiteIds();
-		if (siteIds != null && siteIds.isEmpty()) {
+		Set<SiteCpPair> sites = AccessCtrlMgr.getInstance().getReadAccessShipmentSites();
+		if (sites != null && sites.isEmpty()) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 		
-		if (siteIds != null) {
-			crit.siteIds(siteIds);
+		if (sites != null) {
+			crit.sites(sites);
 		}
 		
 		return crit;
