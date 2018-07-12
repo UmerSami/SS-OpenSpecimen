@@ -1092,23 +1092,16 @@ public class AccessCtrlMgr {
 	}
 
 	private boolean canUserPerformOp(Resource resource, Operation[] ops) {
-		if (AuthUtil.isAdmin()) {
-			return true;
-		}
-
 		return canUserPerformOp(AuthUtil.getCurrentUser().getId(), resource, ops);
 	}
 
 	private boolean canUserPerformOp(Long userId, Resource resource, Operation[] operations) {
-		List<String> ops = new ArrayList<>();
-		for (Operation operation : operations) {
-			ops.add(operation.getName());
+		if (AuthUtil.isAdmin()) {
+			return true;
 		}
 
-		return daoFactory.getSubjectDao().canUserPerformOps(
-				userId,
-				resource.getName(),
-				ops.toArray(new String[0]));
+		String[] ops = Arrays.stream(operations).map(Operation::getName).toArray(String[]::new);
+		return daoFactory.getSubjectDao().canUserPerformOps(userId, resource.getName(), ops);
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////

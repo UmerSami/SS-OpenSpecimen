@@ -87,7 +87,7 @@ public class SiteCpPair {
 			boolean allowed = false;
 			for (SiteCpPair domainSite : domainSites) {
 				if (testSite.getSiteId() == null) {
-					allowed = (domainSite.getSiteId() == null && domainSite.getInstituteId().equals(testSite.getInstituteId()));
+					allowed = (!allSites || domainSite.getSiteId() == null) && domainSite.getInstituteId().equals(testSite.getInstituteId());
 				} else {
 					allowed = (domainSite.getSiteId() != null && domainSite.getSiteId().equals(testSite.getSiteId())) ||
 						(domainSite.getSiteId() == null && domainSite.getInstituteId().equals(testSite.getInstituteId()));
