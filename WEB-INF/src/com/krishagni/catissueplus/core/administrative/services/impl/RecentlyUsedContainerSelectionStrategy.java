@@ -111,8 +111,8 @@ public class RecentlyUsedContainerSelectionStrategy implements ContainerSelectio
 		Disjunction disjunction = Restrictions.disjunction();
 		for (SiteCpPair siteCp : siteCps) {
 			disjunction.add(Restrictions.and(
-					Restrictions.eq("site.id", siteCp.getSiteId()),
-					Restrictions.or(Restrictions.isNull("allowedCp.id"), Restrictions.eq("allowedCp.id", siteCp.getCpId()))
+				Restrictions.eq("site.id", siteCp.getSiteId()),
+				Restrictions.or(Restrictions.isNull("allowedCp.id"), Restrictions.eq("allowedCp.id", siteCp.getCpId()))
 			));
 		}
 
