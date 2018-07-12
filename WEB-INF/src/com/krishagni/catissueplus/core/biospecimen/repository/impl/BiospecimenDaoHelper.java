@@ -35,10 +35,7 @@ public class BiospecimenDaoHelper {
 	}
 
 	public void addSiteCpsCond(Criteria query, SpecimenListCriteria crit) {
-		//
-		// TODO: fix specimens API
-		//
-		addSiteCpsCond(query, null, crit.useMrnSites(), query.getAlias().equals("visit") ? "cpr" : "visit");
+		addSiteCpsCond(query, crit.siteCps(), crit.useMrnSites(), query.getAlias().equals("visit") ? "cpr" : "visit");
 	}
 
 	public void addSiteCpsCond(Criteria query, Collection<SiteCpPair> siteCps, boolean useMrnSites, String startAlias) {

@@ -477,8 +477,7 @@ public class CollectionProtocolRegistrationDaoImpl extends AbstractDao<Collectio
 			return Restrictions.eq(property, siteCp.getSiteId());
 		}
 
-		DetachedCriteria subQuery = DetachedCriteria.forClass(Site.class, "site")
-			.createAlias("site.institute", "institute")
+		DetachedCriteria subQuery = DetachedCriteria.forClass(Site.class)
 			.add(Restrictions.eq("institute.id", siteCp.getInstituteId()));
 		return Subqueries.propertyIn(property, subQuery);
 	}

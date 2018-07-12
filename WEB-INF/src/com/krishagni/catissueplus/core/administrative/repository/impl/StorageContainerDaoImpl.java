@@ -653,10 +653,7 @@ public class StorageContainerDaoImpl extends AbstractDao<StorageContainer> imple
 			}
 		}
 
-		//
-		// TODO: Fix containers API
-		//
-		BiospecimenDaoHelper.getInstance().addSiteCpsCond(query, null, crit.useMrnSites(), startAlias);
+		BiospecimenDaoHelper.getInstance().addSiteCpsCond(query, crit.siteCps(), crit.useMrnSites(), startAlias);
 		return detachedCriteria;
 	}
 

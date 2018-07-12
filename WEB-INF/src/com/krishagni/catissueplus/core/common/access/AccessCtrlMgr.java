@@ -557,12 +557,12 @@ public class AccessCtrlMgr {
 
 		List<SubjectAccess> accessList = daoFactory.getSubjectDao().getAccessList(userId, cpId, resource, ops);
 		Set<Site> cpSites = cpr.getCollectionProtocol().getRepositories();
-		boolean allowed = isAccessAllowedOnAnySite(accessList, cpSites, userId);
+		boolean allowed = isAccessAllowedOnAnySite(accessList, cpSites);
 		if (!allowed && op == Operation.READ) {
 			phiAccess = false;
 			resource = Resource.PARTICIPANT_DEID.getName();
 			accessList = daoFactory.getSubjectDao().getAccessList(userId, cpId, resource, ops);
-			allowed = isAccessAllowedOnAnySite(accessList, cpSites, userId);
+			allowed = isAccessAllowedOnAnySite(accessList, cpSites);
 		}
 
 		if (!allowed) {
@@ -578,7 +578,7 @@ public class AccessCtrlMgr {
 			return phiAccess;
 		}
 
-		allowed = isAccessAllowedOnAnySite(accessList, mrnSites, userId);
+		allowed = isAccessAllowedOnAnySite(accessList, mrnSites);
 		if (!allowed) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
@@ -976,6 +976,7 @@ public class AccessCtrlMgr {
 			return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
 		}
 
+		boolean allSites = false;
 		Set<Site> results = new HashSet<>();
 		if (StringUtils.isNotBlank(crit.resource()) && StringUtils.isNotBlank(crit.operation())) {
 			Resource resource = Resource.fromName(crit.resource());
@@ -990,8 +991,6 @@ public class AccessCtrlMgr {
 
 			List<SubjectAccess> accessList = daoFactory.getSubjectDao()
 				.getAccessList(user.getId(), crit.resource(), new String[] { crit.operation() });
-
-			boolean allSites = false;
 			for (SubjectAccess access : accessList) {
 				if (access.getSite() == null) {
 					allSites = true;
@@ -1000,14 +999,8 @@ public class AccessCtrlMgr {
 
 				results.add(access.getSite());
 			}
-
-			if (allSites) {
-				results.clear();
-				return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
-			}
 		} else {
 			Subject subject = daoFactory.getSubjectDao().getById(user.getId());
-			boolean allSites = false;
 			for (SubjectRole role : subject.getRoles()) {
 				if (role.getSite() == null) {
 					allSites = true;
@@ -1016,11 +1009,11 @@ public class AccessCtrlMgr {
 
 				results.add(role.getSite());
 			}
+		}
 
-			if (allSites) {
-				results.clear();
-				return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
-			}
+		if (allSites) {
+			results.clear();
+			return daoFactory.getSiteDao().getSites(crit.institute(user.getInstitute().getName()));
 		}
 
 		boolean noIds = CollectionUtils.isEmpty(crit.ids());
@@ -1038,7 +1031,6 @@ public class AccessCtrlMgr {
 
 	public boolean isAccessible(Site site) {
 		Subject subject = daoFactory.getSubjectDao().getById(AuthUtil.getCurrentUser().getId());
-
 		for (SubjectRole role : subject.getRoles()) {
 			if (site.equals(role.getSite())) {
 				return true;
@@ -1062,7 +1054,7 @@ public class AccessCtrlMgr {
 		}
 
 		Long userId = AuthUtil.getCurrentUser().getId();
-		List<SubjectAccess> accessList = null;
+		List<SubjectAccess> accessList;
 		if (CollectionUtils.isEmpty(siteNames)) {
 			accessList = daoFactory.getSubjectDao().getAccessList(userId, resource, ops);
 		} else {
@@ -1152,7 +1144,7 @@ public class AccessCtrlMgr {
 		List<SubjectAccess> accessList = daoFactory.getSubjectDao().getAccessList(userId, cpId, resource.getName(), ops);
 
 		Set<Site> cpSites = cpr.getCollectionProtocol().getRepositories();
-		if (!isAccessAllowedOnAnySite(accessList, cpSites, userId)) {
+		if (!isAccessAllowedOnAnySite(accessList, cpSites)) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 
@@ -1165,7 +1157,7 @@ public class AccessCtrlMgr {
 			return;
 		}
 
-		if (!isAccessAllowedOnAnySite(accessList, mrnSites, userId)) {
+		if (!isAccessAllowedOnAnySite(accessList, mrnSites)) {
 			throw OpenSpecimenException.userError(RbacErrorCode.ACCESS_DENIED);
 		}
 	}
@@ -1398,13 +1390,13 @@ public class AccessCtrlMgr {
 		List<SiteCpPair> result = new ArrayList<>();
 		for (SiteCpPair siteCp : siteCps) {
 			if (siteCp.getCpId() == null) {
-				sitesOfAllCps.add(Pair.make(siteCp.getInstituteId(), siteCp.getCpId()));
+				sitesOfAllCps.add(Pair.make(siteCp.getInstituteId(), siteCp.getSiteId()));
 				result.add(siteCp);
 			}
 		}
 
 		for (SiteCpPair siteCp : siteCps) {
-			if (sitesOfAllCps.contains(Pair.make(siteCp.getInstituteId(), siteCp.getCpId()))) {
+			if (sitesOfAllCps.contains(Pair.make(siteCp.getInstituteId(), siteCp.getSiteId()))) {
 				continue;
 			}
 
@@ -1414,7 +1406,7 @@ public class AccessCtrlMgr {
 		return result;
 	}
 
-	private boolean isAccessAllowedOnAnySite(List<SubjectAccess> accessList, Set<Site> sites, Long userId) {
+	private boolean isAccessAllowedOnAnySite(List<SubjectAccess> accessList, Set<Site> sites) {
 		boolean allowed = false, userInstituteCheckDone = false;
 		for (SubjectAccess access : accessList) {
 			Site accessSite = access.getSite();
@@ -1435,7 +1427,7 @@ public class AccessCtrlMgr {
 
 	private boolean isAccessAllowedOnSite(Site allowedSite, Site site) {
 		return (allowedSite != null && allowedSite.equals(site)) ||
-				(allowedSite == null && AuthUtil.getCurrentUserInstitute().equals(site.getInstitute()));
+			(allowedSite == null && AuthUtil.getCurrentUserInstitute().equals(site.getInstitute()));
 	}
 
 	private boolean isAccessAllowedOnSite(SiteCpPair allowedSite, Site site) {

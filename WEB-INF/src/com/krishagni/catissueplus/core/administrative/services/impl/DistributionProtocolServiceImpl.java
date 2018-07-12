@@ -620,7 +620,7 @@ public class DistributionProtocolServiceImpl implements DistributionProtocolServ
 		}
 
 		if (result != null) {
-			crit.sites(sites);
+			crit.sites(result);
 		}
 		
 		return crit;
