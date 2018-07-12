@@ -14,6 +14,7 @@ import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Disjunction;
 import org.hibernate.criterion.Junction;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.criterion.Subqueries;
 import org.hibernate.sql.JoinType;
@@ -149,9 +150,9 @@ public class BiospecimenDaoHelper {
 			return Restrictions.eq(property, siteCp.getSiteId());
 		}
 
-		DetachedCriteria subQuery = DetachedCriteria.forClass(Site.class, "site")
-			.createAlias("site.institute", "institute")
-			.add(Restrictions.eq("institute.id", siteCp.getInstituteId()));
+		DetachedCriteria subQuery = DetachedCriteria.forClass(Site.class)
+			.add(Restrictions.eq("institute.id", siteCp.getInstituteId()))
+			.setProjection(Projections.property("id"));
 		return Subqueries.propertyIn(property, subQuery);
 	}
 
