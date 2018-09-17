@@ -1,3 +1,15 @@
+Forked by Standard Software Soltuions  for Customizations
+
+
+
+
+
+
+Orgignal Project 
+
+An Open Source Biobanking Informatics Platform 
+Developed by Krishagni Solutions (India)
+
 OpenSpecimen
 ============
 
